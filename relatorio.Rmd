@@ -1,0 +1,265 @@
+---
+title: "Relatorio"
+author: "teste"
+date: "6/2/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE )
+
+
+library(tidyverse)
+library(lmtest)
+library(sandwich)
+
+
+```
+
+```{r}
+
+dados <- read_csv("dados/sinascsp2019.csv")
+
+
+```
+
+
+
+# Questão 1
+
+Primeiro modelo:
+
+$$PesoNascer = \alpha + \beta_{Consultas} Consultas + \beta_{Idade} Idade + \beta_{Escolaridade} Escolaridade + \\ \beta_{FilhosVivos}FilhosVivos + \beta_{Cor}Cor + \beta_{Cesaria}{Cesaria} + \beta_{Sexo}Sexo + \beta_{Anomalia} Anomalia + \epsilon    $$
+
+
+```{r}
+
+
+modelo <- lm(
+  PESO ~ 
+    CONSPRENAT +
+    IDADEMAE +
+    def_escol_mae +
+    QTDFILVIVO + 
+    def_raca_cor +
+    def_parto +
+    def_sexo +
+    def_anomalia
+  ,
+  
+  data = dados
+    
+)
+
+summary(modelo)
+
+
+```
+
+Renda, por exemplo
+
+
+
+# Questão 2
+
+
+Será que ele quer que fale sobre as 4 posíveis fontes de endogeneidade?
+
+São elas:
+
+- Erros de medida nos regressores
+
+- Viés de variável omitida
+
+- Viés de equações simultâneas
+
+- Modelo de regressão dinâmica com correlação serial no termo de erro
+
+
+
+# Questão 3
+
+
+Um bom instrumento deve:
+
+- Ser correlacionado com a variável endógena para a qual servirá como instrumento. No caso, número de consultas
+
+- Não deve ser correlacionada com o termo de erro, ou seja, não pode estar correlacionada com uma variável omitida que está correlacionada com a variável de saída, no caso o peso
+
+- Não pode pertencer ao modelo original
+
+
+
+
+
+```{r}
+
+
+dados_com_mes <- dados %>% 
+  mutate(
+    mes_data_nasc = data_nasc %>% lubridate::ymd() %>% lubridate::month(),
+    gravidez_verao = mes_data_nasc < 5 ,
+    .before = everything()
+  ) 
+
+
+
+modelo_tentativa_vi <- lm(
+  CONSPRENAT ~ gravidez_verao, data = dados_com_mes
+)
+
+
+
+summary(modelo_tentativa_vi)
+
+
+```
+
+
+# Questão 4
+
+
+O método dos mínimos quadrados em dois estágios segue esses pasos:
+
+1. Regressão da variável endógena suspeita contra o instrumento escolhido e as outras variáveis do modelo original, obtendo uma estimativa da variável a partir do instrumento: $\hat{Consultas}$
+
+
+2. No modelo original, substituímos a variável suspeita pela estimativa obtida no item anterior:
+
+$$PesoNascer = \alpha + \beta_{\hat{Consultas}} \hat{Consultas} + \beta_{Idade} Idade + \beta_{Escolaridade} Escolaridade + \\ \beta_{FilhosVivos}FilhosVivos + \beta_{Cor}Cor + \beta_{Cesaria}{Cesaria} + \beta_{Sexo}Sexo + \beta_{Anomalia} Anomalia + \epsilon$$
+
+
+
+```{r}
+
+modelo_vi_1 <- lm(
+  CONSPRENAT ~ 
+    casada +
+    IDADEMAE +
+    def_escol_mae +
+    QTDFILVIVO + 
+    def_raca_cor +
+    def_parto +
+    def_sexo +
+    def_anomalia
+  ,
+  
+  data = dados
+    
+)
+
+summary(modelo_vi_1)
+
+consultas_vi <- predict(
+  modelo_vi_1,
+  newdata = dados
+)
+
+
+dados_com_vi <- dados %>% 
+  mutate(
+    consultas_vi = consultas_vi
+  )
+
+
+
+
+modelo_vi_2 <- lm(
+  PESO ~ 
+    consultas_vi +
+    IDADEMAE +
+    def_escol_mae +
+    QTDFILVIVO + 
+    def_raca_cor +
+    def_parto +
+    def_sexo +
+    def_anomalia
+  ,
+  
+  data = dados_com_vi
+    
+)
+
+
+summary(modelo_vi_2)
+
+
+```
+
+
+
+```{r}
+
+coeftest(modelo_vi_2, vcov = vcovHC(modelo_vi_2, type = "HC0"))
+
+
+```
+
+O Teste de Endogeneidade de Hausman segue duas etapas
+
+
+
+1. Faz-se a regressão da variável suspeita de endogeneidade contra todos os regressores mais a variável instrumental. Obtem-se os resíduos
+
+
+```{r}
+
+dados_com_vi <- dados %>% 
+  mutate(
+    residuos_vi = consultas_vi - CONSPRENAT
+  )
+
+
+modelo_vi_residuos <- lm(
+  PESO ~ 
+    CONSPRENAT +
+    residuos_vi +
+    IDADEMAE +
+    def_escol_mae +
+    QTDFILVIVO + 
+    def_raca_cor +
+    def_parto +
+    def_sexo +
+    def_anomalia
+  ,
+  
+  data = dados_com_vi
+    
+)
+
+
+summary(modelo_vi_residuos)
+
+
+
+```
+```{r}
+
+coeftest(modelo_vi_residuos, vcov = vcovHC(modelo_vi_residuos, type = "HC0"))
+
+
+
+```
+
+
+A estatística t do coeficiente do resíduo mostra que o coeficiente é significativamente diferente de zero, o que faz com que rejeitemos a hipótese nula de exogeneidade
+
+
+# Questão 5
+
+
+```{r, results='asis'}
+
+library(stargazer)
+
+
+stargazer(modelo_vi_1, modelo, modelo_vi_2, title="Results", align=TRUE, type = "html")
+
+
+```
+
+
+
+
+
+
