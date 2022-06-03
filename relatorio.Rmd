@@ -119,7 +119,7 @@ summary(modelo_tentativa_vi)
 # Questão 4
 
 
-O método dos mínimos quadrados em dois estágios segue esses pasos:
+O método dos mínimos quadrados em dois estágios segue esses passos:
 
 1. Regressão da variável endógena suspeita contra o instrumento escolhido e as outras variáveis do modelo original, obtendo uma estimativa da variável a partir do instrumento: $\hat{Consultas}$
 
