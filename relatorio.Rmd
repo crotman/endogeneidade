@@ -90,6 +90,27 @@ Um bom instrumento deve:
 
 
 
+A dummy $casada$ está correlacionada com a variável endógena, mas não é muito claro que não está correlacionada com alguma variável omitida, por exemplo consumo de bebida alcoólica.
+
+
+
+```{r}
+
+modelo_tentativa_vi_casada <- lm(
+  CONSPRENAT ~ casada, data = dados_com_mes
+)
+
+
+
+summary(modelo_tentativa_vi_casada)
+
+
+
+```
+
+Uma dummy relacionada ao mês de nascimento mais claramente não tem relação com alguma variável omitida. Uma gravidez no verão poderia levar a menos idas às consultas. Realmente existe essa correlação entre gravidez no verão e menos consultas, mas ela é mais fraca do que a correlação com a dummy de casado
+
+
 
 
 ```{r}
@@ -131,7 +152,6 @@ $$PesoNascer = \alpha + \beta_{\hat{Consultas}} \hat{Consultas} + \beta_{Idade} 
 
 
 ```{r}
-
 modelo_vi_1 <- lm(
   CONSPRENAT ~ 
     casada +
@@ -150,6 +170,15 @@ modelo_vi_1 <- lm(
 
 summary(modelo_vi_1)
 
+```
+
+
+
+
+
+
+```{r}
+
 consultas_vi <- predict(
   modelo_vi_1,
   newdata = dados
@@ -160,8 +189,6 @@ dados_com_vi <- dados %>%
   mutate(
     consultas_vi = consultas_vi
   )
-
-
 
 
 modelo_vi_2 <- lm(
@@ -200,6 +227,10 @@ O Teste de Endogeneidade de Hausman segue duas etapas
 
 
 1. Faz-se a regressão da variável suspeita de endogeneidade contra todos os regressores mais a variável instrumental. Obtem-se os resíduos
+
+2. Regressão da variável de saída do modelo original (peso) contra todos os regressores originais, incluindo a variável suspeita, e os resíduos calculados no item anterior.
+
+A estatística t do coeficiente do resíduo mostra que o coeficiente é significativamente diferente de zero, o que faz com que rejeitemos a hipótese nula de exogeneidade
 
 
 ```{r}
@@ -242,7 +273,6 @@ coeftest(modelo_vi_residuos, vcov = vcovHC(modelo_vi_residuos, type = "HC0"))
 ```
 
 
-A estatística t do coeficiente do resíduo mostra que o coeficiente é significativamente diferente de zero, o que faz com que rejeitemos a hipótese nula de exogeneidade
 
 
 # Questão 5
